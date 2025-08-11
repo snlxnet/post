@@ -33,18 +33,28 @@ impl TryFrom<PathBuf> for Note {
             return Err("Not a public note");
         };
 
-        let wikilinks: Vec<_> = body
+        let wikilink_segments = body
             .split("[[")
             .filter_map(|segment| segment.split("]]").next())
             .enumerate()
+            .filter(|(idx, _)| *idx != 0);
+
+        let linked_paths = body
+            .replace("[[", "WIKILINK")
+            .split('[')
+            .filter_map(|segment| segment.split("](").last())
+            .filter_map(|segment| segment.split(')').next())
+            .enumerate()
             .filter(|(idx, _)| *idx != 0)
-            .map(|(_, link)| link.to_string())
+            .chain(wikilink_segments)
+            .map(|(_, link)| link.trim().to_string())
+            .filter(|link| !link.contains(']'))
             .collect();
 
         Ok(Self {
             path,
             area,
-            linked_paths: wikilinks,
+            linked_paths,
         })
     }
 
