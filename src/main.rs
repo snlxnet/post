@@ -1,3 +1,4 @@
+use color_print::ceprintln;
 use rayon::prelude::*;
 use serde::Deserialize;
 use std::{env, ffi::OsStr, fs, path::PathBuf};
@@ -103,7 +104,9 @@ fn is_markdown(extension: Option<&OsStr>) -> bool {
 }
 
 fn show_help() {
-    todo!();
+    ceprintln!(
+        "Usage: <cyan>post VAULT AREA</>\n\nList files\n  with the <green>post: AREA</> (or <green>post: \"[[AREA]]\"</>) property in the frontmatter\n  inside the <green>VAULT</> directory, plus the images they need"
+    );
 }
 
 fn parse_args() -> Option<Args> {

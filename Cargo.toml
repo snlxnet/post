@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+color-print = "0.3.7"
 markdown-frontmatter = "0.4.0"
 rayon = "1.10.0"
 serde = { version = "1.0.219", features = ["derive"] }
