@@ -1,7 +1,8 @@
+use serde::Deserialize;
 use std::{
     collections::HashMap,
     env,
-    fs::File,
+    fs::{self, File},
     io::{BufRead, BufReader},
     path::PathBuf,
 };
@@ -14,48 +15,29 @@ struct Args {
 
 struct Note {
     path: PathBuf,
-    frontmatter: HashMap<String, String>,
+    area: String,
+    // linked_paths: Vec<String>,
 }
 
-impl From<PathBuf> for Note {
-    fn from(path: PathBuf) -> Self {
-        let mut frontmatter = HashMap::new();
+#[derive(Deserialize)]
+struct Frontmatter {
+    post: Option<String>,
+}
 
-        let file = File::open(&path).unwrap();
-        let mut reader = BufReader::new(file);
-        let mut buf = String::new();
-        let mut current_key = String::new();
-        let mut current_val = String::new();
+impl TryFrom<PathBuf> for Note {
+    fn try_from(path: PathBuf) -> Result<Self, Self::Error> {
+        let doc = fs::read_to_string(&path).map_err(|_| "File not found")?;
+        let (frontmatter, body) =
+            markdown_frontmatter::parse::<Frontmatter>(&doc).map_err(|_| "Parsing error")?;
 
-        reader.read_line(&mut buf).unwrap();
-        if buf.trim() != "---" {
-            buf.clear();
-            return Self { path, frontmatter };
-        }
-        buf.clear();
+        let Some(area) = frontmatter.post else {
+            return Err("Not a public note");
+        };
 
-        loop {
-            reader.read_line(&mut buf).unwrap();
-            match buf.split_once(':') {
-                Some((new_key, new_val)) => {
-                    if !current_key.is_empty() {
-                        frontmatter.insert(current_key, current_val.trim().to_string());
-                    }
-                    current_key = new_key.to_string();
-                    current_val = new_val.to_string();
-                }
-                None => current_val.push_str(&buf),
-            }
-
-            if buf.trim() == "---" {
-                break;
-            }
-
-            buf.clear();
-        }
-
-        Self { path, frontmatter }
+        Ok(Self { path, area })
     }
+
+    type Error = &'static str;
 }
 
 fn main() {
@@ -76,17 +58,15 @@ fn main() {
             ext == "md" || ext == "markdown"
         })
         .map(DirEntry::into_path)
-        .map(Note::from)
+        .flat_map(Note::try_from)
         .filter(|note| {
-            let post = note.frontmatter.get("post");
-
             if area == "*" {
-                return post.is_some();
+                return true;
             }
 
-            post == Some(&area)
-                || post == Some(&format!("[[{area}]]"))
-                || post == Some(&format!("\"[[{area}]]\""))
+            note.area == area
+                || note.area == format!("[[{area}]]")
+                || note.area == format!("\"[[{area}]]\"")
         })
         .for_each(|note| println!("{}", note.path.display()));
 }
