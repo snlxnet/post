@@ -1,9 +1,8 @@
+use rayon::prelude::*;
 use serde::Deserialize;
 use std::{
-    collections::HashMap,
     env,
-    fs::{self, File},
-    io::{BufRead, BufReader},
+    fs::{self},
     path::PathBuf,
 };
 use walkdir::{DirEntry, WalkDir};
@@ -48,6 +47,7 @@ fn main() {
 
     WalkDir::new(vault)
         .into_iter()
+        .par_bridge()
         .flatten()
         .filter(|file| {
             let ext = file
