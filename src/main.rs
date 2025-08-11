@@ -1,10 +1,6 @@
 use rayon::prelude::*;
 use serde::Deserialize;
-use std::{
-    env,
-    fs::{self},
-    path::PathBuf,
-};
+use std::{env, ffi::OsStr, fs, path::PathBuf};
 use walkdir::{DirEntry, WalkDir};
 
 struct Args {
@@ -85,14 +81,7 @@ fn main() {
         .into_iter()
         .par_bridge()
         .flatten()
-        .filter(|file| {
-            let ext = file
-                .path()
-                .extension()
-                .and_then(|osstr| osstr.to_str())
-                .unwrap_or("");
-            ext == "md" || ext == "markdown"
-        })
+        .filter(|file| is_markdown(file.path().extension()))
         .map(DirEntry::into_path)
         .flat_map(Note::try_from)
         .filter(|note| note.can_publish_in(&area))
@@ -101,21 +90,16 @@ fn main() {
             note.linked_paths
                 .iter()
                 .map(|asset| PathBuf::from_iter([&vault, asset]))
-                .filter_map(|path| match path.extension() {
-                    None => match Note::try_from(path) {
-                        Ok(note) => {
-                            if note.can_publish_in(&area) {
-                                Some(note.path)
-                            } else {
-                                None
-                            }
-                        }
-                        Err(_) => None,
-                    },
-                    Some(_) => Some(path),
-                })
+                .filter(|path| !is_markdown(path.extension()))
                 .for_each(|path| println!("{}", path.display()));
         });
+}
+
+fn is_markdown(extension: Option<&OsStr>) -> bool {
+    extension.is_none_or(|extension| {
+        let extension = extension.to_str().unwrap_or("");
+        extension == "md" || extension == "markdown"
+    })
 }
 
 fn show_help() {
