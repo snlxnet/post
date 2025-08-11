@@ -23,6 +23,18 @@ struct Frontmatter {
     post: Option<String>,
 }
 
+impl Note {
+    fn can_publish_in(&self, area: &str) -> bool {
+        if area == "*" {
+            return true;
+        }
+
+        self.area == area
+            || self.area == format!("[[{area}]]")
+            || self.area == format!("\"[[{area}]]\"")
+    }
+}
+
 impl TryFrom<PathBuf> for Note {
     fn try_from(path: PathBuf) -> Result<Self, Self::Error> {
         let doc = fs::read_to_string(&path).map_err(|_| "File not found")?;
@@ -49,6 +61,8 @@ impl TryFrom<PathBuf> for Note {
             .chain(wikilink_segments)
             .map(|(_, link)| link.trim().to_string())
             .filter(|link| !link.contains(']'))
+            .filter(|link| !link.contains("http://"))
+            .filter(|link| !link.contains("https://"))
             .collect();
 
         Ok(Self {
@@ -81,20 +95,26 @@ fn main() {
         })
         .map(DirEntry::into_path)
         .flat_map(Note::try_from)
-        .filter(|note| {
-            if area == "*" {
-                return true;
-            }
-
-            note.area == area
-                || note.area == format!("[[{area}]]")
-                || note.area == format!("\"[[{area}]]\"")
-        })
+        .filter(|note| note.can_publish_in(&area))
         .for_each(|note| {
             println!("{}", note.path.display());
             note.linked_paths
                 .iter()
-                .for_each(|asset| println!("{}", PathBuf::from_iter([&vault, asset]).display()));
+                .map(|asset| PathBuf::from_iter([&vault, asset]))
+                .filter_map(|path| match path.extension() {
+                    None => match Note::try_from(path) {
+                        Ok(note) => {
+                            if note.can_publish_in(&area) {
+                                Some(note.path)
+                            } else {
+                                None
+                            }
+                        }
+                        Err(_) => None,
+                    },
+                    Some(_) => Some(path),
+                })
+                .for_each(|path| println!("{}", path.display()));
         });
 }
 
