@@ -15,7 +15,7 @@ struct Args {
 struct Note {
     path: PathBuf,
     area: String,
-    // linked_paths: Vec<String>,
+    linked_paths: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -33,7 +33,19 @@ impl TryFrom<PathBuf> for Note {
             return Err("Not a public note");
         };
 
-        Ok(Self { path, area })
+        let wikilinks: Vec<_> = body
+            .split("[[")
+            .filter_map(|segment| segment.split("]]").next())
+            .enumerate()
+            .filter(|(idx, _)| *idx != 0)
+            .map(|(_, link)| link.to_string())
+            .collect();
+
+        Ok(Self {
+            path,
+            area,
+            linked_paths: wikilinks,
+        })
     }
 
     type Error = &'static str;
@@ -45,7 +57,7 @@ fn main() {
         return;
     };
 
-    WalkDir::new(vault)
+    WalkDir::new(&vault)
         .into_iter()
         .par_bridge()
         .flatten()
@@ -68,7 +80,12 @@ fn main() {
                 || note.area == format!("[[{area}]]")
                 || note.area == format!("\"[[{area}]]\"")
         })
-        .for_each(|note| println!("{}", note.path.display()));
+        .for_each(|note| {
+            println!("{}", note.path.display());
+            note.linked_paths
+                .iter()
+                .for_each(|asset| println!("{}", PathBuf::from_iter([&vault, asset]).display()));
+        });
 }
 
 fn show_help() {
