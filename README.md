@@ -1,7 +1,7 @@
 > post simplifies publishing your markdown files
 
-## Installation
-todo
+## Status
+The project is depreacted. It was created for publishing my own site, I've since come up with [a better solution](https://snlx.net/mk-api)
 
 ## Usage
 File: `~/vault/hello.md`
